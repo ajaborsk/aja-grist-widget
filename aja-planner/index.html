@@ -1,0 +1,87 @@
+<html>
+    <head>
+        <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+        <style>
+    div#ms_main_container {
+      display: grid;
+      grid-template-columns: max-content repeat(5, auto);
+    }
+
+    div#ms_main_container .headerCell {
+	    text-align: center;
+	    background-color: #ddd;
+	    padding: 10px;
+	    font-family: sans-serif;
+      border: solid 1px #fff;
+    }
+
+    div#ms_main_container .sessionCell {
+	    align-content: center;
+	    background-color: #ddd;
+	    padding: 8px;
+	    font-family: sans-serif;
+      border: solid 1px #fff;
+    }
+
+    div#ms_main_container span.week-date {
+      font-weight: bold;
+    }
+
+    div#ms_main_container .dayCell {
+      border: solid 1px #eee;
+      height: 60px;
+    }
+
+    div#ms_main_container .activity {
+      background-color: lightskyblue;
+/*      background: repeating-linear-gradient(
+        45deg,
+        yellow,
+        yellow 10px,
+        orange 10px,
+        orange 20px
+      ); */
+      overflow:clip;
+      font-size: xx-small;
+      font-family: sans-serif;
+      /* border:1px solid #bbb; */
+      border-radius: 3px;
+      padding: 1px;
+    }
+
+    div#ms_main_container .activity.locked {
+      border:1px solid #000;
+    }
+
+    div#ms_main_container .activity.shared:before {
+      content:"M";
+      background-color: blue;
+      color: white;
+      font-size:12px;
+    }
+
+    div#ms_tooltips {
+      display:none;
+      position: absolute;
+
+      /* width:100px;
+      height:100px;
+      top:500px;
+      left:500px;*/
+
+      border:1px solid #bbb;
+      border-radius: 5px;
+      padding: 5px;
+      box-shadow: 10px 10px 10px 5px rgba(0, 0, 0, 0.3);
+
+      font-family: sans-serif;
+      font-size: small;
+    }
+  </style>
+    </head>
+    <body>
+        <div id="ms_main_container"></div>
+        <div id="ms_tooltips">Tooltips !</div>
+        <script src="main.js"></script>
+    </body>
+</html>
