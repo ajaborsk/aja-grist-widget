@@ -56,6 +56,7 @@ grist.ready({
  * - Preserves whitespace inside <pre>
  *
  * (generated with Copilot/ChatGPT-5)
+ * BTW, Chat-GPT sucks at coding: this code remove spaces between words...
  */
 function htmlToPlainText (html) {
   // Use DOM to decode entities and read text safely
@@ -278,6 +279,39 @@ async function buildAddressesList (record, fields_list) {
   return addr_list
 }
 
+// This fonction build a email from a Grist record, column names & templates
+// Returns a object :
+//  - message : the message itself (a mimemessage object)
+//  - subject_preview : the subject preview (a string)
+//  - boby_preview : the html body preview (a string)
+//  - attachements : the attachements filenames (list of strings)
+//  - error_message : a humain readable error message (null or a string)
+function build_email (
+  record,
+  to_fields,
+  cc_fields,
+  cci_fields,
+  attachement_fields,
+  subject_template,
+  html_body_template
+) {
+  // The main message
+  const message = mimemessage.factory({
+    contentType: 'multipart/mixed',
+    body: []
+  })
+
+  // TODO...
+
+  return {
+    message: message,
+    suject_preview: '',
+    body_preview: '',
+    attachements: [],
+    error: null
+  }
+}
+
 grist.onRecord(
   async (record, mappings) => {
     var errorMessage = null
@@ -329,8 +363,16 @@ grist.onRecord(
       body_html_content = body_template(record)
     } catch (error) {
       body_html_content = '#Erreur : ' + error
-      errorMessage = 'Erreur en inteprétant le corps du message : ' + error
+      errorMessage = 'Erreur en interprétant le corps du message : ' + error
     }
+
+    // the "true" message part = the text/html body + the related parts (=images)
+
+    const message_part = mimemessage.factory({
+      contentType: 'multipart/related',
+      body: []
+    })
+
     const alt = mimemessage.factory({
       contentType: 'multipart/alternative',
       body: []
@@ -342,7 +384,6 @@ grist.onRecord(
         body: htmlToPlainText(body_html_content)
       })
     )
-
     // The html message body
     alt.body.push(
       mimemessage.factory({
@@ -351,7 +392,14 @@ grist.onRecord(
       })
     )
 
-    message.body.push(alt)
+    // Add here the related attachements ?
+    // related attachments (ie images...) MUST be attached to the message_part ("multipart/related") and this message_part
+    // attached to the message BEFORE the other attachement
+    // ==> create a function to get an attachment from grist...
+
+    message_part.body.push(alt)
+
+    message.body.push(message_part)
 
     // Email attachments ============================================================================================
 
@@ -385,15 +433,33 @@ grist.onRecord(
 
       // Build the attachement contents
       const attachment = mimemessage.factory({
-        contentType: guessMimeType(att_meta.fileName),
+        contentType:
+          guessMimeType(att_meta.fileName) +
+          '; name="' +
+          att_meta.fileName +
+          '"',
         contentTransferEncoding: 'base64',
+        // TODO: cut this very long string with \r\n every 75 characters...
         body: await blobToBase64(await att_response.blob())
       })
-      attachment.header(
-        'Content-Disposition',
-        'attachment; filename="' + att_meta.fileName + '"'
-      )
-      message.body.push(attachment)
+
+      //TODO... Sort between attachments & inline
+      if (false) {
+        // inline mode ==> Wrong ! put that earlier in the message building process (before adding message_part to message)
+        attachment.header(
+          'Content-Disposition',
+          'inline; filename="' + att_meta.fileName + '"'
+        )
+        attachment.header('Content-Id', '<' + 'popo.123456789' + '>')
+        message_part.body.push(attachment)
+      } else {
+        // regular attachment
+        attachment.header(
+          'Content-Disposition',
+          'attachment; filename="' + att_meta.fileName + '"'
+        )
+        message.body.push(attachment)
+      }
     }
 
     // Update the preview
