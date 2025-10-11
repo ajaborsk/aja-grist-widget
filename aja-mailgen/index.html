@@ -6,8 +6,29 @@
     <title>AJA Mail generator</title>
     <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
     <script src="mimemessage.js"></script>
+    <script src="handlebars-v4.7.8.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+      }
+      #html_template {
+        width:100%;
+      }
+      h2 {
+        width: 100%;
+        background-color: #ccc;
+        text-align:center;
+        margin: 2px;
+      }
+    </style>
 </head>
 <body>
-    <script src="main.js"></script>
+  <h2>Gabarit</h2>
+  <div id="template">Sujet : <input id="subject_template" size="40"><textarea rows="16" id="html_template"></textarea></div>
+  <h2>Aperçu</h2>
+  <div id="preview"></div>
+  <h2>Actions</h2>
+  <div><a id="send">Ouvrir...</a></div>
+  <script src="main.js"></script>
 </body>
 </html>
