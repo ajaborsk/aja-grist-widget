@@ -1,14 +1,11 @@
+// Un widget pour gérer des calendriers "sparse" (peu denses), comme la programmation d'événements ponctuels sur le long terme
+
 // TODO:
-// - Corriger l'affichage de la bulle pop-up (qui n'est pas toujours au bon endroit). Veiller à ce que cela ne gêne pas,
-//    notamment si on veut faire un glisser/déposer.
-// - Choisir le schéma de couleur (UE ou Urgence ou autre ?) et le stocker dans les options (pour tout le monde)
-//    et/ou dans un stockage local (pour chaque utilisateur)
-// - Gérer les groupes dans les enseignements (montrer visuellement qu'un enseignement est dispensé à un ou plusieurs groupes)
-// - Gestion graphique des heures de début/fin (glisser) au lieu d'une granulosité à la demi-journée
-// - Un mode "zoom" pour une session donnée : Mode vertical pour la journée et + de détails dans chaque boîte
-//    Idées : Ajuster le contenu (horizontal/vertical, affichage des heures, etc.) en fonction
-//      de la taille des blocs de journée et surtout de leur ratio hauteur/largeur
-// - Données éditables directement (ou avec une boite pop-up) au lieu d'utiliser la fiche Grist
+
+
+//const colorField = "PEC";
+//const colorField = "Urgence";
+const colorField = 'Couleur_UE'
 
 // Returns the ISO week of the date.
 Date.prototype.getWeek = function () {
@@ -91,7 +88,8 @@ grid.addEventListener('mouseover', function (event) {
 
     tooltips.style.left = event.clientX + 'px'
     tooltips.style.top = event.clientY + 'px'
-    tooltips.style.backgroundColor = event.target.getAttribute('data-ue_color')
+    tooltips.style.backgroundColor =
+      event.target.getAttribute('data-fill-color')
     tooltips.style.display = 'block'
   } else {
     tooltips.style.display = 'none'
@@ -102,8 +100,51 @@ grid.addEventListener('mouseover', function (event) {
 grist.ready({ requiredAccess: 'read table', allowSelectBy: true })
 
 grist.onRecords(
-  table => {
-    // console.log('Records:', table);
+  async table => {
+    // console.log('Record:', table[0]);
+
+    // In this part, we'll get a mapping of the colors to use for the events. ------------------------------------
+    // It can be either a text column (which should contain a CSS color name or code)
+    //   or a tag (choice) field, in which case we are using the choice background color (style).
+    const tokenInfo = await grist.docApi.getAccessToken({ readOnly: false })
+    // My very own table id
+    let table_id = await grist.getTable().getTableId()
+    // Download the columns definitions
+    const response = await fetch(
+      `${tokenInfo.baseUrl}/tables/${table_id}/columns?auth=${tokenInfo.token}`,
+      { method: 'GET' }
+    )
+    const columns_meta = (await response.json()).columns
+
+    // Let's build the color mapping from the choice object (if any).
+    // If the colorField is not a choice or if there is no colorField, then the mapping will be {} (empty object)
+    let colors_mapping = {}
+    for (i = 0; i < columns_meta.length; i++) {
+      if (
+        columns_meta[i].id == colorField &&
+        columns_meta[i].fields.widgetOptions
+      ) {
+        const options = JSON.parse(columns_meta[i].fields.widgetOptions)
+        colors_mapping = options.choiceOptions
+        break
+      }
+    }
+
+    // This function is used to get the event color. Always returns a {fillColor:'#...', textColor:"#..."} object.
+    function getEventColor (event) {
+      if (Object.keys(colors_mapping).length > 0) {
+        const c = colors_mapping[event[colorField]]
+        if (c) {
+          return c
+        } else {
+          return { fillColor: '#fff', textColor: '#000' }
+        }
+      } else if (event[colorField]) {
+        return { fillColor: event[colorField], textColor: '#000' }
+      } else {
+        return { fillColor: '#fff', textColor: '#000' }
+      }
+    }
 
     // On va ranger les enregistrements (= événements = activités pédagogiques) dans un tableau 2D. Chaque ligne représente une semaine (index x 0=lundi).
 
@@ -128,6 +169,17 @@ grist.onRecords(
         console.log('Sessions fetch error', error)
       })
 
+    let groupsHashmap = {}
+    {
+      let data = await grist.docApi.fetchTable('Groupes')
+      // console.log("Fetched data", data);
+      for (idx = 0; idx < data.id.length; idx++) {
+        groupsHashmap[data.Nom[idx]] = {
+          id: data.id[idx],
+          color: data.Couleur[idx]
+        }
+      }
+    }
     // On balaye tous les enregistrements pour les ranger par semaine :
     //   On crée une liste de "semaines"
     //   Chaque enregistrement de semaine est composée d'une liste :
@@ -181,6 +233,17 @@ grist.onRecords(
     // 1 - S'assurer que la grille est vide (indispensable si c'est une mise à jour des données)
     grid.innerHTML = ''
 
+    // La boîte à outils
+    let cell = document.createElement('div')
+    cell.style.gridColumn = 1
+    cell.innerHTML = "<span style='font-size:20px;'>&#128736;</span>"
+    cell.classList.add('headerToolsCell')
+    cell.addEventListener('click', event => {
+      console.log('open tools...')
+    })
+    grid.appendChild(cell)
+
+    // L'entête avec les noms des jours de la semaine
     weekdays = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi']
     for (header_idx = 0; header_idx < 5; header_idx++) {
       let cell = document.createElement('div')
@@ -190,6 +253,7 @@ grist.onRecords(
       grid.appendChild(cell)
     }
 
+    // Les lignes...
     for (week of weeks) {
       // Le nom de la session (= semaine)
       let sessionCell = document.createElement('div')
@@ -368,55 +432,106 @@ grist.onRecords(
             let activityObject = hashMap[week][j + 2][a_idx]
 
             // On construit un élément <DIV> et on le range dans la cellule du bon jour du calendrier
-            let activity = document.createElement('div')
-            activity.classList.add('activity')
+            let activity_elt = document.createElement('div')
+            activity_elt.classList.add('activity')
+
+            // A small element to indicate which groups are participating the event/activity
+            let activity_grp_elt = document.createElement('div')
+            activity_grp_elt.classList.add('activity-groups')
+
             // console.log("==>",activityObject);
 
             if (activityObject['Contact_Prog']) {
               // We can drag/move it only if it hasn't been programmed yet
-              activity.classList.add('locked')
+              activity_elt.classList.add('locked')
+              activity_grp_elt.classList.add('locked')
             } else {
-              activity.setAttribute('draggable', 'true')
-              activity.addEventListener('dragstart', event => {
+              activity_elt.setAttribute('draggable', 'true')
+              activity_elt.addEventListener('dragstart', event => {
                 event.dataTransfer.setData('text/plain', activityObject.id),
                   (tooltips.style.display = 'none')
               })
             }
-            if (activityObject.Mutualise_EB) {
-              activity.classList.add('shared')
-            }
-            activity.style.position = 'absolute'
+            // Supprimé suite à l'ajout de l'affichage par groupes
+            //if (activityObject.Mutualise_EB) {
+            //  activity_elt.classList.add('shared');
+            //}
 
-            height = 90 / activityObject.y_size
+            height = Math.round(
+              (dayCell.getBoundingClientRect().height - 2) /
+                activityObject.y_size
+            ) // 2 is here because we want a 1px "margin"
 
-            activity.style.top = height * activityObject.y_pos + 1 + '%'
-            activity.style.height = height - 2 + '%'
-            activity.style.left = activityObject.activityStart + '%'
-            activity.style.width =
+            // TODO: use pixels (not percentage) to achieve a better display precision
+            activity_elt.style.position = 'absolute'
+            activity_elt.style.top = height * activityObject.y_pos + 1 + 'px' // 1 is the "margin"
+            activity_elt.style.height = height - 8 + 'px' // 4 =  2 * border-width + 2 * padding
+            activity_elt.style.left = activityObject.activityStart + '%'
+            activity_elt.style.width =
               activityObject.activityEnd - activityObject.activityStart + '%'
 
+            // The activity group(s) indicator
+            activity_grp_elt.setAttribute('data-groups', activityObject.Groupes)
+            activity_grp_elt.style.position = 'absolute'
+            activity_grp_elt.style.top =
+              height * activityObject.y_pos + 1 + height - 8 + 'px' // 4 =  2 * border-width + 2 * padding
+            activity_grp_elt.style.height = 4 + 'px'
+            activity_grp_elt.style.left = activityObject.activityStart + '%'
+            activity_grp_elt.style.width =
+              activityObject.activityEnd - activityObject.activityStart + '%'
+            if (activityObject.Groupes.length > 0) {
+              let colors = new Array()
+              for (i = 0; i < activityObject.Groupes.length; i++) {
+                colors.push(groupsHashmap[activityObject.Groupes[i]].color)
+              }
+              if (colors.length == 1) {
+                activity_grp_elt.style.backgroundColor = colors[0]
+              } else if (colors.length > 1) {
+                // console.log("Colors:", colors);
+                let colors_strs = []
+                for (let i = 0; i < colors.length; i++) {
+                  colors_strs.push(
+                    colors[i] +
+                      ' ' +
+                      i * 6 +
+                      'px, ' +
+                      colors[i] +
+                      ' ' +
+                      (i + 1) * 6 +
+                      'px'
+                  )
+                }
+                activity_grp_elt.style.backgroundImage =
+                  'repeating-linear-gradient(45deg, ' +
+                  colors_strs.join(', ') +
+                  ')'
+              }
+            }
+
             // On intègre plein de données directement dans les attributs du <DIV> de l'activité, pour les utilisations dans les fonctions JS (notamment le tooltip et pour le déplacement)
-            activity.setAttribute('data-id', activityObject.id)
-            activity.setAttribute('data-debut', activityObject.Debut)
-            activity.setAttribute('data-fin', activityObject.Fin)
-            activity.setAttribute(
+            activity_elt.setAttribute('data-id', activityObject.id)
+            activity_elt.setAttribute('data-debut', activityObject.Debut)
+            activity_elt.setAttribute('data-fin', activityObject.Fin)
+            activity_elt.setAttribute(
               'data-enseignants',
               activityObject.Enseignant_s_
             )
-            activity.setAttribute('data-site', activityObject.Site)
-            activity.setAttribute('data-salle', activityObject.Salle)
-            activity.setAttribute('data-UE', activityObject.UE)
-            activity.setAttribute('data-sequence', activityObject.Sequence)
-            activity.setAttribute('data-ue_color', activityObject.Couleur_UE)
-            activity.style.backgroundColor = activityObject.Couleur_UE
-            activity.innerText = activityObject.Intitule
-            dayCell.appendChild(activity)
+            activity_elt.setAttribute('data-site', activityObject.Site)
+            activity_elt.setAttribute('data-salle', activityObject.Salle)
+            activity_elt.setAttribute('data-UE', activityObject.UE)
+            activity_elt.setAttribute('data-sequence', activityObject.Sequence)
+            const col = getEventColor(activityObject)
+            activity_elt.setAttribute('data-fill-color', col.fillColor)
+            activity_elt.style.backgroundColor = col.fillColor
+            activity_elt.innerText = activityObject.Intitule
+            dayCell.appendChild(activity_elt)
+            dayCell.appendChild(activity_grp_elt)
           }
         }
       }
     }
   },
-  { includeColumns: 'shown', expandRefs: true }
+  { includeColumns: 'all', expandRefs: true }
 )
 
 grist.onRecord(record => {

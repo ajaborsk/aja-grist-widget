@@ -1,10 +1,21 @@
 <html>
-    <head>
-        <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-        <style>
+<head>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
     div#ms_main_container {
       display: grid;
       grid-template-columns: max-content repeat(5, auto);
+    }
+
+    div#ms_main_container .headerToolsCell {
+	    padding: 4px;
+    }
+
+    div#ms_main_container .headerToolsCell span {
+	    border: 1px solid #bbb;
+	    padding: 4px;
+	    border-radius: 4px;
+      cursor: pointer;
     }
 
     div#ms_main_container .headerCell {
@@ -33,8 +44,8 @@
     }
 
     div#ms_main_container .activity {
-      background-color: lightskyblue;
-/*      background: repeating-linear-gradient(
+      /* background-color: lightskyblue;
+      background: repeating-linear-gradient(
         45deg,
         yellow,
         yellow 10px,
@@ -44,13 +55,25 @@
       overflow:clip;
       font-size: xx-small;
       font-family: sans-serif;
-      /* border:1px solid #bbb; */
-      border-radius: 3px;
+      /* border:1px solid #bbb;*/
+      border-radius: 3px 3px 0 0;
       padding: 1px;
     }
 
+    div#ms_main_container .activity-groups {
+      padding: 1px;
+      border-radius: 0 0 3px 3px;
+    }
+
+
     div#ms_main_container .activity.locked {
-      border:1px solid #000;
+      border:solid #000;
+      border-width: 1px 1px 0 1px; 
+    }
+
+    div#ms_main_container .activity-groups.locked {
+      border:solid #000;
+      border-width: 0 1px 1px 1px; 
     }
 
     div#ms_main_container .activity.shared:before {
@@ -78,10 +101,10 @@
       font-size: small;
     }
   </style>
-    </head>
-    <body>
-        <div id="ms_main_container"></div>
-        <div id="ms_tooltips">Tooltips !</div>
-        <script src="main.js"></script>
-    </body>
+</head>
+<body>
+  <div id="ms_main_container"></div>
+  <div id="ms_tooltips">Tooltips !</div>
+  <script src="main.js"></script>
+</body>
 </html>
