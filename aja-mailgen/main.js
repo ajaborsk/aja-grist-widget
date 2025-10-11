@@ -215,13 +215,13 @@ grist.getOption('html_template').then(v => {
     html_template_element.value = v
   } else {
     html_template_element.value =
-      '<HTML>\n' +
-      '  <HEAD>\n' +
-      '  </HEAD>\n' +
-      '  <BODY>\n' +
-      '    Bonjour {$Donnee_1}\n' +
-      '  </BODY>\n' +
-      '</HTML>\n'
+      '<html>\n' +
+      '  <head>\n' +
+      '  </head>\n' +
+      '  <body>\n' +
+      '    ...insert here your body contents...\n' +
+      '  </body>\n' +
+      '</html>\n'
   }
 })
 
@@ -278,142 +278,145 @@ async function buildAddressesList (record, fields_list) {
   return addr_list
 }
 
-grist.onRecord(async (record, mappings) => {
-  var errorMessage = null
+grist.onRecord(
+  async (record, mappings) => {
+    var errorMessage = null
 
-  // The main message
-  const message_2 = mimemessage.factory({
-    contentType: 'multipart/mixed',
-    body: []
-  })
-
-  // Standard headers ================================================================================================
-
-  const to_addrs = await buildAddressesList(record, mappings.to)
-  const cc_addrs = await buildAddressesList(record, mappings.cc)
-  const bcc_addrs = await buildAddressesList(record, mappings.bcc)
-
-  // From & Date header are meant to be set by the email client, not this code
-  // message_2.header('From', 'Alice <alice@example.com>');
-  // message_2.header('Date', new Date().toUTCString())
-
-  message_2.header('MIME-Version', '1.0')
-
-  message_2.header('To', to_addrs.join(', '))
-  message_2.header('Cc', cc_addrs.join(', '))
-  message_2.header('Bcc', bcc_addrs.join(', '))
-
-  let subject_text
-  try {
-    const subject_template = Handlebars.compile(subject_template_element.value)
-    subject_text = subject_template(record)
-  } catch (error) {
-    errorMessage = 'Erreur en inteprétant le sujet du message : ' + error
-    subject_text = '#Erreur : ' + error
-  }
-  message_2.header('Subject', subject_text)
-
-  // This message hasn't been sent and should be opened as is
-  // So we don't add a 'Date' header (which is mandatory) and add a X-Unsent flag instead
-  message_2.header('X-Unsent', '1')
-
-  // Email (basic) contents ========================================================================================
-
-  // Build the html message body from the template and grist object parameters
-  let body_html_content
-  try {
-    const body_template = Handlebars.compile(html_template_element.value)
-    body_html_content = body_template(record)
-  } catch (error) {
-    body_html_content = '#Erreur : ' + error
-    errorMessage = 'Erreur en inteprétant le corps du message : ' + error
-  }
-  const alt = mimemessage.factory({
-    contentType: 'multipart/alternative',
-    body: []
-  })
-  alt.body.push(
-    // The (fallback) text message body
-    mimemessage.factory({
-      contentType: 'text/plain; charset=utf-8',
-      body: htmlToPlainText(body_html_content)
+    // The main message
+    const message = mimemessage.factory({
+      contentType: 'multipart/mixed',
+      body: []
     })
-  )
 
-  // The html message body
-  alt.body.push(
-    mimemessage.factory({
-      contentType: 'text/html; charset=utf-8',
-      body: body_html_content
+    // Standard headers ================================================================================================
+
+    const to_addrs = await buildAddressesList(record, mappings.to)
+    const cc_addrs = await buildAddressesList(record, mappings.cc)
+    const bcc_addrs = await buildAddressesList(record, mappings.bcc)
+
+    // From & Date header are meant to be set by the email client, not this code
+    // message_2.header('From', 'Alice <alice@example.com>');
+    // message_2.header('Date', new Date().toUTCString())
+
+    message.header('MIME-Version', '1.0')
+
+    message.header('To', to_addrs.join(', '))
+    message.header('Cc', cc_addrs.join(', '))
+    message.header('Bcc', bcc_addrs.join(', '))
+
+    let subject_text
+    try {
+      const subject_template = Handlebars.compile(
+        subject_template_element.value
+      )
+      subject_text = subject_template(record)
+    } catch (error) {
+      errorMessage = 'Erreur en inteprétant le sujet du message : ' + error
+      subject_text = '#Erreur : ' + error
+    }
+    message.header('Subject', subject_text)
+
+    // This message hasn't been sent and should be opened as is
+    // So we don't add a 'Date' header (which is mandatory) and add a X-Unsent flag instead
+    message.header('X-Unsent', '1')
+
+    // Email (basic) contents ========================================================================================
+
+    // Build the html message body from the template and grist object parameters
+    let body_html_content
+    try {
+      const body_template = Handlebars.compile(html_template_element.value)
+      body_html_content = body_template(record)
+    } catch (error) {
+      body_html_content = '#Erreur : ' + error
+      errorMessage = 'Erreur en inteprétant le corps du message : ' + error
+    }
+    const alt = mimemessage.factory({
+      contentType: 'multipart/alternative',
+      body: []
     })
-  )
+    alt.body.push(
+      // The (fallback) text message body
+      mimemessage.factory({
+        contentType: 'text/plain; charset=utf-8',
+        body: htmlToPlainText(body_html_content)
+      })
+    )
 
-  message_2.body.push(alt)
+    // The html message body
+    alt.body.push(
+      mimemessage.factory({
+        contentType: 'text/html; charset=utf-8',
+        body: body_html_content
+      })
+    )
 
-  // Email attachments ============================================================================================
+    message.body.push(alt)
 
-  let attachments = []
+    // Email attachments ============================================================================================
 
-  // get a tmp grist API token
-  const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true })
+    let attachments = []
 
-  // Loops over attachments
-  for (idx = 0; idx < record[mappings.attachments].length; idx++) {
-    // the attachment (grist) id
-    const att_id = record[mappings.attachments][idx]
+    // get a tmp grist API token
+    const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true })
 
-    // Download the attachment metadata (to get the filename)
-    const att_meta = await (
-      await fetch(
-        `${tokenInfo.baseUrl}/attachments/${att_id}?auth=${tokenInfo.token}`,
+    // Loops over attachments
+    for (idx = 0; idx < record[mappings.attachments].length; idx++) {
+      // the attachment (grist) id
+      const att_id = record[mappings.attachments][idx]
+
+      // Download the attachment metadata (to get the filename)
+      const att_meta = await (
+        await fetch(
+          `${tokenInfo.baseUrl}/attachments/${att_id}?auth=${tokenInfo.token}`,
+          { method: 'GET' }
+        )
+      ).json()
+
+      // Download the attachment contents
+      const att_response = await fetch(
+        `${tokenInfo.baseUrl}/attachments/${att_id}/download?auth=${tokenInfo.token}`,
         { method: 'GET' }
       )
-    ).json()
+      // TODO: Should probably check the responses...
 
-    // Download the attachment contents
-    const att_response = await fetch(
-      `${tokenInfo.baseUrl}/attachments/${att_id}/download?auth=${tokenInfo.token}`,
-      { method: 'GET' }
-    )
+      // Keep filename for the preview
+      attachments.push(att_meta.fileName)
 
-    // TODO: Should probably check responses...
+      // Build the attachement contents
+      const attachment = mimemessage.factory({
+        contentType: guessMimeType(att_meta.fileName),
+        contentTransferEncoding: 'base64',
+        body: await blobToBase64(await att_response.blob())
+      })
+      attachment.header(
+        'Content-Disposition',
+        'attachment; filename="' + att_meta.fileName + '"'
+      )
+      message.body.push(attachment)
+    }
 
-    // Keep filename for the preview
-    attachments.push(att_meta.fileName)
+    // Update the preview
+    let preview_div = document.getElementById('preview')
+    preview_div.innerHTML =
+      '<u>Sujet :</u> ' +
+      subject_text +
+      '<hr>' +
+      body_html_content +
+      '<hr><u>Pièces jointes :</u> ' +
+      attachments.join(', ') +
+      '<hr>'
 
-    // Build the attachement contents
-    const attachment = mimemessage.factory({
-      contentType: guessMimeType(att_meta.fileName),
-      contentTransferEncoding: 'base64',
-      body: await blobToBase64(await att_response.blob())
-    })
-    attachment.header(
-      'Content-Disposition',
-      'attachment; filename="' + att_meta.fileName + '"'
-    )
-    message_2.body.push(attachment)
-  }
+    // Build a blob with the whole message
+    let blob = new Blob([message.toString()], { type: 'message/rfc822' })
 
-  // Build a blob with the whole message
-  let blob = new Blob([message_2.toString()], { type: 'message/rfc822' })
+    // Create a tmp URL to this blob
+    let url = URL.createObjectURL(blob)
 
-  // Create a tmp URL to this blob
-  let url = URL.createObjectURL(blob)
-
-  // On crée un objet html sur la page dans lequel on met l'aperçu et un bouton d'envoi
-  let preview_div = document.getElementById('preview')
-  preview_div.innerHTML =
-    '<u>Sujet :</u> ' +
-    subject_text +
-    '<hr>' +
-    body_html_content +
-    '<hr><u>Pièces jointes :</u> ' +
-    attachments.join(', ') +
-    '<hr>'
-
-  // On modifie le bouton d'envoi pour qu'il déclenche le téléchargement au clic
-
-  let msg_send_elt = document.getElementById('send')
-  msg_send_elt.setAttribute('href', url)
-  msg_send_elt.setAttribute('download', 'message.eml')
-})
+    // Update the link so it triggers the download
+    let msg_send_elt = document.getElementById('send')
+    msg_send_elt.setAttribute('href', url)
+    msg_send_elt.setAttribute('download', 'message.eml')
+  },
+  { includeColumns: 'normal' }
+)
