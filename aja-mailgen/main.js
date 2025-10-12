@@ -279,6 +279,32 @@ async function buildAddressesList (record, fields_list) {
   return addr_list
 }
 
+async function get_attachment (tokenInfo, att_id) {
+  // Download the attachment metadata (to get the filename)
+  const att_meta = await (
+    await fetch(
+      `${tokenInfo.baseUrl}/attachments/${att_id}?auth=${tokenInfo.token}`,
+      { method: 'GET' }
+    )
+  ).json()
+
+  // Download the attachment contents
+  const att_response = await fetch(
+    `${tokenInfo.baseUrl}/attachments/${att_id}/download?auth=${tokenInfo.token}`,
+    { method: 'GET' }
+  )
+  // build the MIME attachment, but lacks Content-Disposition header !! it must be added afterward
+  const attachment = mimemessage.factory({
+    contentType:
+      guessMimeType(att_meta.fileName) + '; name="' + att_meta.fileName + '"',
+    contentTransferEncoding: 'base64',
+    // TODO: cut this very long string with \r\n every 75 characters...
+    body: await blobToBase64(await att_response.blob())
+  })
+
+  return { attachment, filename: att_meta.fileName }
+}
+
 // This fonction build a email from a Grist record, column names & templates
 // Returns a object :
 //  - message : the message itself (a mimemessage object)
@@ -356,6 +382,15 @@ grist.onRecord(
 
     // Email (basic) contents ========================================================================================
 
+    // First, let's check if there is any related attachment in the message body
+    // TODO...
+
+    // Build a clean unique CID for every related attachment and use it in the template
+    // TODO...
+
+    // Get the inline attachments data (to check the file MIME type)
+    // TODO...
+
     // Build the html message body from the template and grist object parameters
     let body_html_content
     try {
@@ -391,13 +426,11 @@ grist.onRecord(
         body: body_html_content
       })
     )
-
-    // Add here the related attachements ?
-    // related attachments (ie images...) MUST be attached to the message_part ("multipart/related") and this message_part
-    // attached to the message BEFORE the other attachement
-    // ==> create a function to get an attachment from grist...
-
     message_part.body.push(alt)
+
+    // Add here the inline attachements
+    // related attachments (ie images...) MUST be attached to the message_part ("multipart/related")
+    // and this message_part attached to the message BEFORE the other attachements (unrelated, not inline)
 
     message.body.push(message_part)
 
@@ -413,35 +446,11 @@ grist.onRecord(
       // the attachment (grist) id
       const att_id = record[mappings.attachments][idx]
 
-      // Download the attachment metadata (to get the filename)
-      const att_meta = await (
-        await fetch(
-          `${tokenInfo.baseUrl}/attachments/${att_id}?auth=${tokenInfo.token}`,
-          { method: 'GET' }
-        )
-      ).json()
-
-      // Download the attachment contents
-      const att_response = await fetch(
-        `${tokenInfo.baseUrl}/attachments/${att_id}/download?auth=${tokenInfo.token}`,
-        { method: 'GET' }
-      )
-      // TODO: Should probably check the responses...
+      // Get the attachment (content data as a MIME part and metadata)
+      const { attachment, filename } = await get_attachment(tokenInfo, att_id)
 
       // Keep filename for the preview
-      attachments.push(att_meta.fileName)
-
-      // Build the attachement contents
-      const attachment = mimemessage.factory({
-        contentType:
-          guessMimeType(att_meta.fileName) +
-          '; name="' +
-          att_meta.fileName +
-          '"',
-        contentTransferEncoding: 'base64',
-        // TODO: cut this very long string with \r\n every 75 characters...
-        body: await blobToBase64(await att_response.blob())
-      })
+      attachments.push(filename)
 
       //TODO... Sort between attachments & inline
       if (false) {
@@ -456,7 +465,7 @@ grist.onRecord(
         // regular attachment
         attachment.header(
           'Content-Disposition',
-          'attachment; filename="' + att_meta.fileName + '"'
+          'attachment; filename="' + filename + '"'
         )
         message.body.push(attachment)
       }
