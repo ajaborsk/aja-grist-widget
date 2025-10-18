@@ -338,6 +338,17 @@ function build_email (
   }
 }
 
+const editorjs = new EditorJS({
+  holder: 'template_editor',
+  tools: {
+    paragraph: {
+      class: Paragraph,
+      inlineToolbar: true
+    },
+    header: { class: Header }
+  }
+})
+
 grist.onRecord(
   async (record, mappings) => {
     var errorMessage = null

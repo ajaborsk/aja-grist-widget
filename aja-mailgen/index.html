@@ -7,6 +7,9 @@
     <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
     <script src="mimemessage.js"></script>
     <script src="handlebars-v4.7.8.js"></script>
+    <script src="editorjs-2.31.umd.js"></script>
+    <script src="header.umd.js"></script>
+    <script src="paragraph.umd.js"></script>
     <style>
       body {
         font-family: sans-serif;
@@ -32,7 +35,11 @@
 <body>
   <h2>Gabarit</h2>
   <div class="template-help">Les gabarits utilisent la bibliothèque (et la syntaxe) HandleBars. L'aide se trouve <a href="https://handlebarsjs.com/guide/#what-is-handlebars">ici (en)</a></div>
-  <div id="template">Sujet : <input id="subject_template" size="40"><textarea rows="16" id="html_template"></textarea></div>
+  <div id="template">
+    Sujet : <input id="subject_template" size="40">
+    <textarea rows="16" id="html_template"></textarea>
+    <!-- <div id="template_editor"></div> -->
+  </div>
   <h2>Aperçu</h2>
   <div id="preview"></div>
   <h2>Actions</h2>
