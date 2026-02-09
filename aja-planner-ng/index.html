@@ -1,0 +1,113 @@
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AJA Sparse events calendar</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    div#ms_main_container {
+      display: grid;
+      grid-template-columns: max-content repeat(5, auto);
+    }
+
+    div#ms_main_container .headerToolsCell {
+	    padding: 4px;
+    }
+
+    div#ms_main_container .headerToolsCell span {
+	    border: 1px solid #bbb;
+	    padding: 4px;
+	    border-radius: 4px;
+      cursor: pointer;
+    }
+
+    div#ms_main_container .headerCell {
+	    text-align: center;
+	    background-color: #ddd;
+	    padding: 10px;
+	    font-family: sans-serif;
+      border: solid 1px #fff;
+    }
+
+    div#ms_main_container .sessionCell {
+	    align-content: center;
+	    background-color: #ddd;
+	    padding: 8px;
+	    font-family: sans-serif;
+      border: solid 1px #fff;
+    }
+
+    div#ms_main_container span.week-date {
+      font-weight: bold;
+    }
+
+    div#ms_main_container .dayCell {
+      border: solid 1px #eee;
+      height: 60px;
+    }
+
+    div#ms_main_container .activity {
+      /* background-color: lightskyblue;
+      background: repeating-linear-gradient(
+        45deg,
+        yellow,
+        yellow 10px,
+        orange 10px,
+        orange 20px
+      ); */
+      overflow:clip;
+      font-size: xx-small;
+      font-family: sans-serif;
+      /* border:1px solid #bbb;*/
+      border-radius: 3px 3px 0 0;
+      padding: 1px;
+    }
+
+    div#ms_main_container .activity-groups {
+      padding: 1px;
+      border-radius: 0 0 3px 3px;
+    }
+
+
+    div#ms_main_container .activity.locked {
+      border:solid #000;
+      border-width: 1px 1px 0 1px; 
+    }
+
+    div#ms_main_container .activity-groups.locked {
+      border:solid #000;
+      border-width: 0 1px 1px 1px; 
+    }
+
+    div#ms_main_container .activity.shared:before {
+      content:"M";
+      background-color: blue;
+      color: white;
+      font-size:12px;
+    }
+
+    div#ms_tooltips {
+      display:none;
+      position: absolute;
+
+      /* width:100px;
+      height:100px;
+      top:500px;
+      left:500px;*/
+
+      border:1px solid #bbb;
+      border-radius: 5px;
+      padding: 5px;
+      box-shadow: 10px 10px 10px 5px rgba(0, 0, 0, 0.3);
+
+      font-family: sans-serif;
+      font-size: small;
+    }
+  </style>
+</head>
+<body>
+  <div id="ms_main_container"></div>
+  <div id="ms_tooltips">Tooltips !</div>
+  <script src="main.js"></script>
+</body>
+</html>

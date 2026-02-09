@@ -1,0 +1,28 @@
+{
+    "name": "@ajaborsk/widget-aja-planner",
+    "description": "Widget for planning activities in an calendar (sort of)",
+    "homePage": "https://github.com/ajaborsk/aja-grist-widget/aja-planner",
+    "version": "0.0.1",
+    "grist": [
+        {
+            "name": "Aja-planner",
+            "url": "https://ajaborsk.github.io/aja-grist-widget/aja-planner/index.html",
+            "widgetId": "@ajaborsk/aja-planner",
+            "published": true,
+            "accessLevel": "full",
+            "renderAfterReady": true,
+            "archive": {
+                "domains": [],
+                "entrypoints": []
+            },
+            "description": "Show records as events in a calendar view (sort of)",
+            "authors": [
+                {
+                    "name": "Alexandre Jaborska",
+                    "url": "https://github.com/ajaborsk"
+                }
+            ],
+            "isGristLabsMaintained": false
+        }
+    ]
+}
